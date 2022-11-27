@@ -1,0 +1,274 @@
+---
+title: "Tema 3"
+author: "franmarq@gmail.com"
+date: '2022-11-23'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r data}
+Chapman.Cuali<-read.csv("Chapman_Cuali.csv",header=T,sep=",")
+is.numeric(Chapman.Cuali$Id)
+## [1] TRUE
+is.numeric(Chapman.Cuali$Edad)
+## [1] TRUE
+is.numeric(Chapman.Cuali$Colesterol)
+## [1] TRUE
+Chapman.Cuali$Presion<-as.factor(Chapman.Cuali$Presion)
+is.factor(Chapman.Cuali$Presion)
+#table(Chapman.Cuali$Presion)
+## [1] TRUE
+Chapman.Cuali$IMC<-as.factor(Chapman.Cuali$IMC)
+is.factor(Chapman.Cuali$IMC)
+
+## [1] TRUE
+is.numeric(Chapman.Cuali$Coronarios)
+```
+
+#El programa R trata a las variables de tipo factor como si fueran de tipo
+#entero, en el sentido de que les asigna un orden. Por defecto el orden que se
+#asigna es el alfabetico como se puede ver con la sentencia
+
+```{r ordenlevel}
+levels(Chapman.Cuali$Presion )
+levels(Chapman.Cuali$IMC)
+contrasts(Chapman.Cuali$Presion)
+contrasts(Chapman.Cuali$IMC)
+```
+
+```{r cambioref}
+
+Chapman.Cuali$Presion<-relevel(Chapman.Cuali$Presion,ref="Optima")
+Chapman.Cuali$IMC<-relevel(Chapman.Cuali$IMC,ref="Normal")
+#vemos como cambia la categora de referencia
+contrasts(Chapman.Cuali$Presion)
+contrasts(Chapman.Cuali$IMC)
+
+```
+
+se quiere modelizar la ocurrencia de enfermedad coronaria
+de nuestro ejemplo a partir de la variable cualitativa Presion.
+
+```{r modelo}
+Ajuste.Presion<-glm(Coronarios~Presion,data=Chapman.Cuali,family=binomial)
+summary(Ajuste.Presion)
+```
+
+El resultado del ajuste nos muestra los parametros asociados a cada
+una de las variables de dise~no que automatica e internamente ha utilizado
+el programa. Observese como la variable Presion tena cuatro categoras
+(Optima,Normal,Alta,Descompensada en ese orden) y por tanto para el ajuste
+se utilizan tres variables de dise~no llamadas PresionAlta, PresionDescompensada,
+PresionNormal que por otro lado indica que la categora de referencia es
+Optima.
+
+e-2.1202635 = 0.12
+
+Esto signica que la ventaja de padecer problemas coronarios (frente a
+no padecerlos) si tienes la presion optima es 0.12. Esto es, es 0.12 veces
+menos probable padecer problemas coronarios que no padecerlos.
+
+Para cambiar el sistema de codicacion, sin modicar nuestra variable
+explicativa presion creamos una nueva variable llamada PresionM que tiene
+los mismos valores anteriores con las mismas caracterstica de codicacion
+
+```{r cambiocodif}
+
+Chapman.Cuali$PresionM<-Chapman.Cuali$Presion
+#cambio estatus codificacion
+contrasts(Chapman.Cuali$PresionM)<-contr.sum(4)
+contrasts(Chapman.Cuali$Presion)
+#comprobamos
+contrasts(Chapman.Cuali$PresionM)
+
+
+```
+
+```{r ajustmodelo}
+Ajuste.PresionM<-glm(Coronarios~PresionM,data=Chapman.Cuali,family=binomial)
+summary(Ajuste.PresionM)
+
+```
+
+*** Prediccion
+
+la variable
+explicativa presion tiene cuatro categoras, cada una de las cuales tiene un
+numero de exitos y de fracasos:
+
+```{r table}
+table(Chapman.Cuali$Presion,Chapman.Cuali$Coronarios)
+
+```
+
+Para el ajuste realizado con la codicacion parcial los 10 primeros valores
+ajustados son
+
+```{r ajustmodelo}
+#codificacion parcial
+fitted.values(Ajuste.Presion)[1:10]
+
+#codificacion marginal
+fitted.values(Ajuste.PresionM)[1:10]
+
+```
+como solo hay cuatro observaciones diferentes de la variable
+explicativa, el numero de valores predichos diferentes, sera igual al numero
+de categoras, cuatro, cada uno de los cuales se repetira tantas veces como
+su respectiva categora.
+
+```{r estimparam}
+table(fitted.values(Ajuste.Presion),Chapman.Cuali$Coronarios)
+```
+
+*** Bondad del ajuste
+
+```{r bondad1}
+summary(Ajuste.Presion)
+summary(Ajuste.PresionM)
+```
+
+intervalos de conanza de los parametros
+
+```{r intervalconf}
+confint.default(Ajuste.Presion)
+confint.default(Ajuste.PresionM)
+
+```
+
+Como la exponencial de los parametros tienen interpretacion en terminos
+de cocientes de ventajas solo para la codicacion parcial, solo tendra sentido
+calcular los intervalos de conanza para los cocientes de ventaja mediate la
+exponencial de los intervalos de los parametros en esta codicacion.
+
+```{r interval2}
+exp(confint.default(Ajuste.Presion))
+
+```
+
+
+```{r test razverosimil}
+#MODELO GENERAL
+Ajuste.Presion
+
+#MODELO PARTICULAR
+Ajuste.0<-glm(Coronarios~1,data=Chapman.Cuali,family=binomial)
+#COMPARACION
+anova(Ajuste.0,Ajuste.Presion)
+
+pchisq(anova(Ajuste.0,Ajuste.Presion)$Deviance[2],
+anova(Ajuste.0,Ajuste.Presion)$Df[2],lower.tail=F)
+
+```
+
+el resultado inidica que el los parametros son significativos
+
+
+*** validacion
+
+```{r validacion}
+residuals(Ajuste.Presion,type= "pearson")[1:10]
+table(residuals(Ajuste.Presion,type= "pearson"))
+residuals(Ajuste.Presion,type= "deviance")[1:10]
+table(residuals(Ajuste.Presion,type= "deviance"))
+```
+```{r valoresmalajus}
+# Para detectar valores mal ajustados, los residuos estandarizados
+rstandard(Ajuste.Presion,type= "pearson")[1:10]
+table(rstandard(Ajuste.Presion,type= "pearson"))
+rstandard(Ajuste.Presion,type= "deviance")[1:10]
+table(rstandard(Ajuste.Presion,type= "deviance"))
+```
+
+valores influyentes
+
+```{r valinfluye}
+hatvalues(Ajuste.Presion)[1:10]
+table(hatvalues(Ajuste.Presion))
+##
+##
+
+```
+
+tabla de clasificaci[on]
+
+```{r clasif}
+library(pROC)
+CurvaROC<-roc(Chapman.Cuali$Coronarios,fitted.values(Ajuste.Presion))
+CurvaROC
+```
+
+```{r ROC}
+CurvaROC$thresholds
+CurvaROC$sensitivities
+CurvaROC$specificities
+plot(CurvaROC)
+```
+
+
+Debido a las pocas probabilidades predichas diferentes, la curva ROC no
+proporciona un metodo diagnostico efectivo para el modelo logstico.
+
+*** Ajuste del modelo multiple y seleccion
+stepwise
+
+El primer paso es la seleccion stepwise de variables.
+
+```{r step}
+Ajuste.0<-glm(Coronarios~1,data=Chapman.Cuali,family=binomial)
+
+Ajuste.All<-glm(Coronarios~Edad+Colesterol+Presion+IMC,
+data=Chapman.Cuali,family=binomial)
+
+Ajuste.Step<-step(Ajuste.0,scope=list(lower=Coronarios~1,
+upper=Coronarios~Edad+Colesterol+Presion+IMC),
+direction = "both")
+
+```
+
+a seleccion stepwise naliza con dos varables cuantitiavas
+seleccionadas (Edad y Colesterol) y una cualitativa (IMC).
+
+
+El modelo ajustado que se obtiene es el siguiente
+
+```{r modajust}
+summary(Ajuste.Step)
+
+```
+
+***Otros resultados Prediccion 
+
+```{r fit2}
+fitted.values(Ajuste.Step)[1:10]
+
+```
+
+
+[...  INCLUIR CODIGO PARA VALIDACION INFLUYENTES]
+
+
+*** Analisis de datos agrupados
+
+```{r datoscor}
+
+Coronarios<-read.table("Coronarios.txt",header=T,sep="")
+
+# Observe que al tratarse de datos agrupados, en la funcion glm() se debe incluir la respuesta con el numero de exitos y de fracasos a traves de la sentencia cbind()
+
+Ajuste.Coronarios0<-glm(cbind(EC1,EC0)~1,family=binomial,
+data=Coronarios)
+
+Ajuste.Coronarios.All<-glm(cbind(EC1,EC0)~Ciga+Compor+Psang,family=binomial,
+data=Coronarios)
+
+Ajuste.Coronarios.Step<-step(Ajuste.Coronarios0,scope=list(lower=cbind(EC1,EC0)~1,
+upper=cbind(EC1,EC0)~Ciga+Compor+Psang),direction = "both")
+
+```
+
